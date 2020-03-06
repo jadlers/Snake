@@ -127,7 +127,7 @@
            (is= (-> (create-state ["1 "
                                    "2 "] :direction :right)
                     (next-head-coord))
-                [0 1]))}
+                [1 0]))}
   [state]
   (let [[x y]     (first (:snake state))
         direction (:direction state)]
@@ -198,13 +198,33 @@
       (cut-tail $))
     (grow-head $)))
 
-
 (defn set-direction
+  "Updates the direction of the snake to the given one if valid."
+  {:test (fn []
+           ;; Valid direction change functions correctly
+           (is= (-> (create-state ["21"] :direction :right)
+                    (set-direction :down)
+                    (:direction))
+                :down)
+           ;; Applying same direction as current doesn't change direction
+           (is= (-> (create-state ["21"] :direction :right)
+                    (set-direction :right)
+                    (:direction))
+                :right)
+           ;; Can't move opposite to current direction
+           (is= (-> (create-state ["21"] :direction :right)
+                    (set-direction :left)
+                    (:direction))
+                :right))}
   [state new-direction]
-  (let [up-down    #{:up :down}
-        left-right #{:left :right}
-        new-old    #{new-direction (:direction state)}]
-    (if (or (= new-old up-down) (= new-old left-right))
+  (let [old-direction (:direction state)
+        opposite      {:up    :down
+                       :down  :up
+                       :left  :right
+                       :right :left}]
+    (if (or
+          (= old-direction new-direction)
+          (= old-direction (opposite new-direction)))
       state
       (assoc state :direction new-direction))))
 
