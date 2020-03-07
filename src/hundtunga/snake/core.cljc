@@ -6,27 +6,30 @@
 
 (defn create-empty-state
   []
-  {:seed       0
-   :board-size 10
-   :direction  :right
-   :snake      (list [3 0] [2 0] [1 0])
-   :food       [3 3]})
+  {:seed           0
+   :board-size     10
+   :direction      :right
+   :next-direction nil
+   :snake          (list [3 0] [2 0] [1 0])
+   :food           [3 3]})
 
 (defn create-state
   {:test (fn []
            (is= (create-state ["abc"] :direction :up)
-                {:direction  :up
-                 :snake      (list [0 0] [1 0] [2 0])
-                 :board-size 10
-                 :seed       0
-                 :food       [3 3]})
+                {:direction      :up
+                 :next-direction nil
+                 :snake          (list [0 0] [1 0] [2 0])
+                 :board-size     10
+                 :seed           0
+                 :food           [3 3]})
            (is= (create-state [" 654"
                                " 123"])
-                {:direction  :right
-                 :seed       0
-                 :board-size 10
-                 :food       [3 3]
-                 :snake      (list [1 1] [2 1] [3 1] [3 0] [2 0] [1 0])}))}
+                {:direction      :right
+                 :next-direction nil
+                 :seed           0
+                 :board-size     10
+                 :food           [3 3]
+                 :snake          (list [1 1] [2 1] [3 1] [3 0] [2 0] [1 0])}))}
 
   [strings & kvs]
   (let [snake (->> strings
@@ -47,6 +50,10 @@
       (if (empty? kvs)
         $
         (apply assoc $ kvs)))))
+
+(defn get-direction
+  [state]
+  (or (:next-direction state) (:direction state)))
 
 (defn abs
   {:test (fn []
@@ -127,10 +134,14 @@
            (is= (-> (create-state ["1 "
                                    "2 "] :direction :right)
                     (next-head-coord))
+                [1 0])
+           (is= (-> (create-state ["1 "
+                                   "2 "] :direction :left :next-direction :right)
+                    (next-head-coord))
                 [1 0]))}
   [state]
   (let [[x y]     (first (:snake state))
-        direction (:direction state)]
+        direction (get-direction state)]
     (condp = direction
       :up    [x (dec y)]
       :down  [x (inc y)]
@@ -206,7 +217,10 @@
     (if (is-food? $ (next-head-coord $))
       (update-food $)
       (cut-tail $))
-    (grow-head $)))
+    (grow-head $)
+    (if (:next-direction $)
+      (assoc $ :direction (:next-direction $) :next-direction nil)
+      $)))
 
 (defn set-direction
   "Updates the direction of the snake to the given one if valid."
@@ -214,17 +228,17 @@
            ;; Valid direction change functions correctly
            (is= (-> (create-state ["21"] :direction :right)
                     (set-direction :down)
-                    (:direction))
+                    (:next-direction))
                 :down)
            ;; Applying same direction as current doesn't change direction
            (is= (-> (create-state ["21"] :direction :right)
                     (set-direction :right)
-                    (:direction))
+                    (:next-direction))
                 :right)
            ;; Can't move opposite to current direction
            (is= (-> (create-state ["21"] :direction :right)
                     (set-direction :left)
-                    (:direction))
+                    (:next-direction))
                 :right))}
   [state new-direction]
   (let [old-direction (:direction state)
@@ -236,7 +250,44 @@
           (= old-direction new-direction)
           (= old-direction (opposite new-direction)))
       state
-      (assoc state :direction new-direction))))
+      (assoc state :next-direction new-direction))))
+
+(defn self-collision?
+  [state]
+  {:test (fn []
+           (is= (-> (create-state ["543"
+                                   " 12"] :food [3 3] :board-size 4 :direction :up)
+                    (tick)
+                    (self-collision?))
+                true)
+           (is= (-> (create-state [" 43"
+                                   " 12"] :food [3 3] :board-size 4 :direction :up)
+                    (tick)
+                    (self-collision?))
+                false))}
+  (not= (count (:snake state)) (count (set (:snake state)))))
+
+(defn wall-collision?
+  {:test (fn []
+           (is= (-> (create-state ["21"] :board-size 1)
+                    (wall-collision?))
+                true)
+           (is= (-> (create-state ["2"
+                                   "1"] :board-size 2)
+                    (wall-collision?))
+                false)
+           (is= (-> (create-state ["12"] :direction :left :board-size 4)
+                    (tick)
+                    (wall-collision?))
+                true))}
+  [state]
+  (let [[x y] (first (:snake state))]
+    (not (and (< -1 x (:board-size state))
+              (< -1 y (:board-size state))))))
+
+(defn game-over?
+  [state]
+  (or (self-collision? state) (wall-collision? state)))
 
 (comment
   (run-tests))
