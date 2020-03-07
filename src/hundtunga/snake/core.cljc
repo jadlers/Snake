@@ -138,6 +138,16 @@
       :right [(inc x) y])))
 
 (defn board-coords
+  {:test (fn []
+           (is= (-> (create-state ["1"] :board-size 2)
+                    (board-coords))
+                [[0 0] [0 1]
+                 [1 0] [1 1]])
+           (is= (-> (create-state ["1"] :board-size 3)
+                    (board-coords))
+                [[0 0] [0 1] [0 2]
+                 [1 0] [1 1] [1 2]
+                 [2 0] [2 1] [2 2]]))}
   [state]
   (let [size (:board-size state)]
     (for [x (range size) y (range size)] [x y])))
